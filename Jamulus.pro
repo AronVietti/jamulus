@@ -322,6 +322,7 @@ HEADERS += src/audiomixerboard.h \
     src/connectdlg.h \
     src/global.h \
     src/clientdlg.h \
+    src/healthcheck.h \
     src/serverdlg.h \
     src/multicolorled.h \
     src/multicolorledbar.h \
@@ -331,6 +332,7 @@ HEADERS += src/audiomixerboard.h \
     src/serverlogging.h \
     src/settings.h \
     src/socket.h \
+    src/socketerrors.h \
     src/soundbase.h \
     src/testbench.h \
     src/util.h \
@@ -444,6 +446,7 @@ SOURCES += src/audiomixerboard.cpp \
     src/clientsettingsdlg.cpp \
     src/connectdlg.cpp \
     src/clientdlg.cpp \
+    src/healthcheck.cpp \
     src/serverdlg.cpp \
     src/main.cpp \
     src/multicolorled.cpp \
@@ -455,6 +458,7 @@ SOURCES += src/audiomixerboard.cpp \
     src/settings.cpp \
     src/signalhandler.cpp \
     src/socket.cpp \
+    src/socketerrors.cpp \
     src/soundbase.cpp \
     src/util.cpp \
     src/analyzerconsole.cpp \
