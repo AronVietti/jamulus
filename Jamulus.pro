@@ -194,6 +194,7 @@ HEADERS += src/audiomixerboard.h \
     src/connectdlg.h \
     src/global.h \
     src/clientdlg.h \
+    src/healthcheck.h \
     src/serverdlg.h \
     src/multicolorled.h \
     src/multicolorledbar.h \
@@ -315,6 +316,7 @@ SOURCES += src/audiomixerboard.cpp \
     src/clientsettingsdlg.cpp \
     src/connectdlg.cpp \
     src/clientdlg.cpp \
+    src/healthcheck.cpp \
     src/serverdlg.cpp \
     src/main.cpp \
     src/multicolorled.cpp \

@@ -30,7 +30,8 @@
 #pragma once
 
 #include <QObject>
-#include <QTGlobal>
+#include <QtGlobal>
+#include <QThread>
 #include <vector>
 #ifndef _WIN32
 # include <netinet/in.h>
@@ -38,9 +39,6 @@
 #else
 # include <winsock2.h>
 #endif
-
-// Forward Declarations
-class QThread;
 
 // TCP Socket whose only purpose is to let Health Check monitoring software connect
 // to the service to verify it is still functioning.
@@ -90,13 +88,15 @@ protected:
         CHealthCheckSocket* pSocket;
 
         bool bRun;
-    };
 
 #ifdef _WIN32
     std::vector<SOCKET>           ConnectionSockets;
 #else
     std::vector<int>              ConnectionSockets;
 #endif
+    };
+
+
 
     CHealthCheckThread AcceptThread;
 };

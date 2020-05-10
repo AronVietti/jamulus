@@ -237,6 +237,7 @@ CServer::CServer ( const int          iNewMaxNumChan,
     bUseDoubleSystemFrameSize ( bNUseDoubleSystemFrameSize ),
     iMaxNumChannels           ( iNewMaxNumChan ),
     Socket                    ( this, iPortNumber ),
+    HealthCheck(iPortNumber),
     Logging                   ( iMaxDaysHistory ),
     JamRecorder               ( strRecordingDirName ),
     bEnableRecording          ( !strRecordingDirName.isEmpty() ),
@@ -737,6 +738,7 @@ CServer::CServer ( const int          iNewMaxNumChan,
     // start the socket (it is important to start the socket after all
     // initializations and connections)
     Socket.Start();
+    HealthCheck.Listen();
 }
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
