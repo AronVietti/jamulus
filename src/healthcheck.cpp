@@ -24,10 +24,11 @@
 
 #include "healthcheck.h"
 #include <string>
-#include <unistd.h>
 #include <fcntl.h>
 #include "global.h"
-
+#include <QString>
+#include <QTextStream>
+#include "util.h"
 /* Socket Helper Functions ****************************************************/
 
 // Handle Socket Errors for Posix and Windows
@@ -124,7 +125,8 @@ static void HandleSocketError(int error)
 
 #endif
     default:
-        throw CGenErr("HealthCheck: Socket error # " + std::to_string(error), "Network Error");
+        QString e = std::string("HealthCheck: Socket error # " + std::to_string(error)).c_str();
+        throw CGenErr(e, "Network Error");
     }
 }
 
@@ -156,39 +158,78 @@ static bool IsDisconnectError(int error)
 }
 
 #ifdef _WIN32
-static bool SocketConnected(Socket socket)
+static bool SetNonBlocking(SOCKET socket)
+#else
+static bool SetNonBlocking(int socket)
+#endif
+{
+    // Try to set this socket as non blocking. This makes it easier to accept and manage
+    // connections on a single thread.
+    int blocking = 0;
+
+#ifdef _WIN32
+    unsigned long mode = 1;
+    blocking = ioctlsocket(socket, FIONBIO, &mode);
+#else
+    int flags = fcntl(socket, F_GETFL);
+
+    if (flags == -1)
+        blocking = flags;
+    else
+    {
+        flags = flags | O_NONBLOCK;
+        blocking = fcntl(socket, F_SETFL, flags);
+    }
+#endif
+
+    return blocking != -1;
+}
+
+
+#ifdef _WIN32
+static bool SocketConnected(SOCKET socket)
 #else
 static bool SocketConnected(int socket)
 #endif
 {
     int result = 0;
-    char fakeBuffer;
+    char fakeBuffer = '0';
 
 #ifdef _WIN32
-    result = recv(socket, &fakeBuffer, 1);
+    result = recv(socket, &fakeBuffer, 1, 0);
 #else
     result = read(socket, &fakeBuffer, 1);
 #endif
-
     // A 0 result means Socket was succesfully disconnected
     if (result == 0)
-        return true;
+        return false;
+
     // An error was returned, handle the error
     if (result == -1)
     {
         // If the error was one of the Non Blocking codes we're still connected
         int error = GetError();
-        if (IsNonBlockingError(error))
-            return true;
-        if (IsDisconnectError(error))
-            return false;
 
+        if (IsNonBlockingError(error))
+	    {
+            return true;
+	    }
+
+        if (IsDisconnectError(error))
+	    {
+            return false;
+	    }
+        
         HandleSocketError(error);
+
+        return false;
     }
+
+    return true;
 }
 
 #ifdef _WIN32
-static void CloseSocket(Socket socket)
+static void CloseSocket(SOCKET socket)
 {
     closesocket(socket);
 }
@@ -211,7 +252,7 @@ CHealthCheckSocket::~CHealthCheckSocket()
     AcceptThread.Stop();
 }
 
-CHealthCheckSocket::Init(const quint16 iPortNumber)
+void CHealthCheckSocket::Init(const quint16 iPortNumber)
 {
 #ifdef _WIN32
     // for the Windows socket usage we have to start it up first
@@ -223,41 +264,25 @@ CHealthCheckSocket::Init(const quint16 iPortNumber)
 #endif
 
     TcpSocket = socket(AF_INET, SOCK_STREAM, 0);
-
-    // Try to set this socket as non blocking. This makes it easier to accept and manage
-    // connections on a single thread.
-    int blocking = 0;
-
-#ifdef _WIN32
-    unsigned long mode = 1;
-    blocking = ioctlsocket(fd, FIONBIO, &mode) == 0) ? true : false;
-#else
-    int flags = fcntl(fd, F_GETFL, 0);
-
-    if (flags == -1) blocking = flags;
-    else
-    {
-        flags = flags | O_NONBLOCK;
-        blocking = fcntl(fd, F_SETFL, flags);
-    }
-#endif
-
-    if(blocking = -1)
+    
+    bool nonblocking = SetNonBlocking(TcpSocket);
+    
+    if(!nonblocking)
         HandleSocketError(GetError());
 
     sockaddr_in TcpSocketInAddr;
 
     TcpSocketInAddr.sin_family = AF_INET;
-    TcpSocketInAddr.sin_addr = htonl(INADDR_ANY);
+    TcpSocketInAddr.sin_addr.s_addr = INADDR_ANY;
     TcpSocketInAddr.sin_port = htons(iPortNumber);
 
-    int bound = bind(TcpSocket, &TcpSocketInAddr, sizeof(TcpSocketInAddr));
+    int bound = ::bind(TcpSocket, (sockaddr*)&TcpSocketInAddr, sizeof(TcpSocketInAddr));
 
     if (bound == -1)
         HandleSocketError(GetError());
 }
 
-CHealthCheckSocket::Listen()
+void CHealthCheckSocket::Listen()
 {
     int listening = listen(TcpSocket, 0);
 
@@ -266,22 +291,26 @@ CHealthCheckSocket::Listen()
 
     AcceptThread.SetSocket(this);
 
-    moveToThread(&AcceptThread);
+    this->moveToThread(&AcceptThread);
+
+    AcceptThread.start();
 }
 
 #ifdef _WIN32
 SOCKET CHealthCheckSocket::Accept()
 {
+    int addrlen;
 #else
 int CHealthCheckSocket::Accept()
 {
+    socklen_t addrlen;
 #endif
     sockaddr addr;
-    socklen_t addrlen;
+
     return accept(TcpSocket, &addr, &addrlen);
 }
 
-CHealthCheckSocket::Close()
+void CHealthCheckSocket::Close()
 {
 #ifdef _WIN32
     // closesocket will cause recvfrom to return with an error because the
@@ -320,8 +349,6 @@ void CHealthCheckSocket::CHealthCheckThread::SetSocket(CHealthCheckSocket* pNewS
     pSocket = pNewSocket;
 }
 
-
-
 void CHealthCheckSocket::CHealthCheckThread::run()
 {
     bRun = true;
@@ -329,34 +356,47 @@ void CHealthCheckSocket::CHealthCheckThread::run()
     while (pSocket != nullptr && bRun)
     {
 #ifdef _WIN32
-        SOCKET newConnection;
+        SOCKET newConnection = pSocket->Accept();
 #else
-        int newConnection;
+	    int newConnection  = pSocket->Accept();
 #endif
-        newConnection = pSocket.Accept();
-
+        
+#ifdef _WIN32
+        if (newConnection == INVALID_SOCKET)
+        {
+#else
         if (newConnection == -1)
         {
+#endif
             int error = GetError();
+
             if (!IsNonBlockingError(error))
             {
                 bRun = false;
-                connected = false;
                 HandleSocketError(error);
                 break;
             }
         }
-            
-        ConnectionSockets.push_back(newConnection);
+	    else
+	    {
+            bool nonblocking = SetNonBlocking(newConnection);
 
+            if(!nonblocking)
+                HandleSocketError(GetError());
+
+            ConnectionSockets.push_back(newConnection);
+	    }
+        
         // Check existing connections. If they're closed then remove them
-        for (auto connection = ConnectionSockets.cbegin(); connection != ConnectionSockets.cend(); ++connection)
-        {   
+        for (auto connection = ConnectionSockets.cbegin(); connection != ConnectionSockets.cend();)
+        {  
             if (!SocketConnected(*connection))
             {
                 CloseSocket(*connection);
                 connection = ConnectionSockets.erase(connection);
             }
+            else
+                ++connection;
         }
 
         // Make sure we don't have too many connections.
@@ -364,18 +404,17 @@ void CHealthCheckSocket::CHealthCheckThread::run()
         if (ConnectionSockets.size() > MAX_NUM_HEALTH_CONNECTIONS)
         {
 #ifdef _WIN32
-            SOCKET& oldConnection;
+            SOCKET& oldConnection = ConnectionSockets.front();
 #else
-            int& oldConnection;
+            int& oldConnection = ConnectionSockets.front();
 #endif
-            oldConnection = ConnectionSockets.front();
             ConnectionSockets.erase(ConnectionSockets.cbegin());
             CloseSocket(oldConnection);
         }
 
         // Because the socket is set to not block this loop could peg the cpu.
         // Putting in a smal wait to prevent that.
-        wait(5);
+        msleep(5);
     }
 
     bRun = false;
