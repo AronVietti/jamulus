@@ -37,7 +37,6 @@
 #include "global.h"
 #include "buffer.h"
 #include "socket.h"
-#include "healthcheck.h"
 #include "channel.h"
 #include "util.h"
 #include "serverlogging.h"
@@ -342,7 +341,6 @@ protected:
 
     // actual working objects
     CHighPrioSocket            Socket;
-    CHealthCheckSocket          HealthCheck;
 
     // logging
     CServerLogging             Logging;
