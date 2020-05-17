@@ -29,62 +29,15 @@
 
 #pragma once
 
-#include <QObject>
-#include <QtGlobal>
-#include <vector>
-#ifndef _WIN32
-# include <netinet/in.h>
-# include <sys/socket.h>
-#else
-# include <winsock2.h>
-#endif
-
-// TCP Socket whose only purpose is to let Health Check monitoring software connect
-// to the service to verify it is still functioning.
-class CHealthCheckSocket : public QObject
+namespace SocketError
 {
-    Q_OBJECT
 
-public:
-    CHealthCheckSocket(const quint16 iPortNumber);
+void HandleSocketError(int error);
 
-    virtual ~CHealthCheckSocket();
+int GetError();
 
-    // Start listening for incoming conncetions
-    void Listen();
+bool IsNonBlockingError(int error);
 
-    // Close the Socket and all of it's Connections
-    void Close();
+bool IsDisconnectError(int error);
 
-    void HandleConnections();
-
-    void Init(const quint16 iPortNumber);
-
-#ifdef _WIN32
-    const SOCKET &Socket();
-#else
-    const int &Socket();
-#endif
-
-private:
-    bool bListening;
-
-    // Accept a connection from the socket
-#ifdef _WIN32
-    SOCKET Accept();
-#else
-    int Accept();
-#endif
-
-#ifdef _WIN32
-    SOCKET TcpSocket;
-#else
-    int TcpSocket;
-#endif
-
-#ifdef _WIN32
-    std::vector<SOCKET> ConnectionSockets;
-#else
-    std::vector<int> ConnectionSockets;
-#endif
-};
+}
