@@ -134,7 +134,7 @@ void CHealthCheckSocket::HandleConnections()
     if(!bListening) return;
 
 #ifdef _WIN32
-        SOCKET newConnection = pSocket->Accept();
+        SOCKET newConnection = Accept();
 #else
 	    int newConnection  = Accept();
 #endif
