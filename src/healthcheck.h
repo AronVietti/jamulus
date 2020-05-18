@@ -31,7 +31,7 @@
 
 #include <QObject>
 #include <QtGlobal>
-#include <vector>
+#include "util.h"
 #ifndef _WIN32
 # include <netinet/in.h>
 # include <sys/socket.h>
@@ -83,8 +83,8 @@ private:
 #endif
 
 #ifdef _WIN32
-    std::vector<SOCKET> ConnectionSockets;
+    CVector<SOCKET> vecConnectionSockets;
 #else
-    std::vector<int> ConnectionSockets;
+    CVector<int> vecConnectionSockets;
 #endif
 };

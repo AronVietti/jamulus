@@ -162,16 +162,16 @@ void CHealthCheckSocket::HandleConnections()
             if(!nonblocking)
                 HandleSocketError(GetError());
 
-            ConnectionSockets.push_back(newConnection);
+            vecConnectionSockets.push_back(newConnection);
 	    }
         
         // Check existing connections. If they're closed then remove them
-        for (auto connection = ConnectionSockets.cbegin(); connection != ConnectionSockets.cend();)
+        for (auto connection = vecConnectionSockets.cbegin(); connection != vecConnectionSockets.cend();)
         {  
             if (!SocketConnected(*connection))
             {
                 CloseSocket(*connection);
-                connection = ConnectionSockets.erase(connection);
+                connection = vecConnectionSockets.erase(connection);
             }
             else
                 ++connection;
@@ -179,14 +179,14 @@ void CHealthCheckSocket::HandleConnections()
 
         // Make sure we don't have too many connections.
         //Disconnect and remove the oldest one if we do.
-        if (ConnectionSockets.size() > MAX_NUM_HEALTH_CONNECTIONS)
+        if (vecConnectionSockets.size() > MAX_NUM_HEALTH_CONNECTIONS)
         {
 #ifdef _WIN32
-            SOCKET& oldConnection = ConnectionSockets.front();
+            SOCKET& oldConnection = vecConnectionSockets.front();
 #else
-            int& oldConnection = ConnectionSockets.front();
+            int& oldConnection = vecConnectionSockets.front();
 #endif
-            ConnectionSockets.erase(ConnectionSockets.cbegin());
+            vecConnectionSockets.erase(vecConnectionSockets.cbegin());
             CloseSocket(oldConnection);
         }
 }
